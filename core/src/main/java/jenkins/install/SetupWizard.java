@@ -96,8 +96,7 @@ public class SetupWizard extends PageDecorator {
             // difficult password
             FilePath iapf = getInitialAdminPasswordFile();
             if(jenkins.getSecurityRealm() == null || jenkins.getSecurityRealm() == SecurityRealm.NO_AUTHENTICATION) { // this seems very fragile
-                BulkChange bc = new BulkChange(jenkins);
-                try{
+                try (BulkChange bc = new BulkChange(jenkins)) {
                     HudsonPrivateSecurityRealm securityRealm = new HudsonPrivateSecurityRealm(false, false, null);
                     jenkins.setSecurityRealm(securityRealm);
                     String randomUUID = UUID.randomUUID().toString().replace("-", "").toLowerCase(Locale.ENGLISH);
@@ -130,8 +129,6 @@ public class SetupWizard extends PageDecorator {
                 
                     jenkins.save(); // !!
                     bc.commit();
-                } finally {
-                    bc.abort();
                 }
             }
     
@@ -484,8 +481,12 @@ public class SetupWizard extends PageDecorator {
         public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
             // Force root requests to the setup wizard
             if (request instanceof HttpServletRequest) {
-                HttpServletRequest req = (HttpServletRequest)request;
-                if((req.getContextPath() + "/").equals(req.getRequestURI())) {
+                HttpServletRequest req = (HttpServletRequest) request;
+                String requestURI = req.getRequestURI();
+                if (requestURI.equals(req.getContextPath()) && !requestURI.endsWith("/")) {
+                    ((HttpServletResponse) response).sendRedirect(req.getContextPath() + "/");
+                    return;
+                } else if (req.getRequestURI().equals(req.getContextPath() + "/")) {
                     Jenkins.getInstance().checkPermission(Jenkins.ADMINISTER);
                     chain.doFilter(new HttpServletRequestWrapper(req) {
                         public String getRequestURI() {
